@@ -68,6 +68,7 @@ tools/
 caketools/
 *.binlog
 .ionide/**
+.idea/**
 /.nuspec
 .XamarinFormsVersionFile.txt
 .idea

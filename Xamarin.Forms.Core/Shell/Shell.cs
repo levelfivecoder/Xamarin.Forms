@@ -417,10 +417,20 @@ namespace Xamarin.Forms
 
 			return routes;
 		}
+		public ShellRouteState RouteState
+		{
+			get
+			{
+				if (CurrentItem?.CurrentItem?.CurrentItem == null)
+					return null;
+
+				return new ShellRouteState(this);
+			}
+		}
 
 		public Task GoToAsync(ShellNavigationState state)
 		{
-			return GoToAsync(state, null, false);
+			return GoToAsync(state, false);
 		}
 
 		public Task GoToAsync(ShellNavigationState state, bool animate)
@@ -428,8 +438,11 @@ namespace Xamarin.Forms
 			return GoToAsync(state, animate, false);
 		}
 
-		internal async Task GoToAsync(ShellNavigationState state, bool? animate, bool enableRelativeShellRoutes)
+		// TODO SHANE FIX
+		internal bool EnableRelativeShellRoutes { get; set; }
+		internal async Task GoToAsync(ShellNavigationState state, bool animate, bool enableRelativeShellRoutes)
 		{
+			EnableRelativeShellRoutes = enableRelativeShellRoutes;
 			// FIXME: This should not be none, we need to compute the delta and set flags correctly
 			var accept = ProposeNavigation(ShellNavigationSource.Unknown, state, true);
 			if (!accept)
@@ -437,36 +450,51 @@ namespace Xamarin.Forms
 
 			_accumulateNavigatedEvents = true;
 
-			var navigationRequest = ShellUriHandler.GetNavigationRequest(this, state.FullLocation, enableRelativeShellRoutes);
-			var uri = navigationRequest.Request.FullUri;
-			var queryString = navigationRequest.Query;
-			var queryData = ParseQueryString(queryString);
+			ShellRouteState navigationRequest = await ShellUriParser.ParseAsync(new ShellUriParserArgs(this, state.FullLocation));
+			navigationRequest = await ShellNavigationRequest.NavigatingToAsync(new ShellNavigationArgs(this, navigationRequest));
 
-			ApplyQueryAttributes(this, queryData, false);
+			if (navigationRequest == null || navigationRequest == this.RouteState)
+			{
+				return;
+			}
 
-			var shellItem = navigationRequest.Request.Item;
-			var shellSection = navigationRequest.Request.Section;
+
+			// Generalize with shellsection
+			var uri = ShellUriHandler.FormatUri(state.FullLocation);
+			bool replaceEntireStack = false;
+			if (uri.IsAbsoluteUri)
+				replaceEntireStack = true;
+			else if (uri.OriginalString.StartsWith("//", StringComparison.Ordinal) || uri.OriginalString.StartsWith("\\\\", StringComparison.Ordinal))
+				replaceEntireStack = true;
+
+			var currentRoute = navigationRequest.CurrentRoute;
+			var pathParts = currentRoute.PathParts;
+			IReadOnlyList<PathPart> globalRoutes = pathParts.Skip(3).ToList();
+
+			ApplyQueryAttributes(this, currentRoute.NavigationParameters, false);
+
+			ShellItem shellItem = (ShellItem)pathParts[0].ShellPart;
+			ShellSection shellSection = (ShellSection)pathParts[1].ShellPart;
 			var currentShellSection = CurrentItem?.CurrentItem;
 			var nextActiveSection = shellSection ?? shellItem?.CurrentItem;
-			
-			ShellContent shellContent = navigationRequest.Request.Content;
+			ShellContent shellContent = (ShellContent)pathParts[2].ShellPart;
 			bool modalStackPreBuilt = false;
 
 			// If we're replacing the whole stack and there are global routes then build the navigation stack before setting the shell section visible
-			if (navigationRequest.Request.GlobalRoutes.Count > 0 && nextActiveSection != null && navigationRequest.StackRequest == NavigationRequest.WhatToDoWithTheStack.ReplaceIt)
+			if (globalRoutes.Count > 0 && nextActiveSection != null && replaceEntireStack)
 			{
 				modalStackPreBuilt = true;
-				await nextActiveSection.GoToAsync(navigationRequest, queryData, false);
+				await nextActiveSection.GoToAsync(navigationRequest, false, state.FullLocation);
 			}
-			
+
 			if (shellItem != null)
 			{
-				ApplyQueryAttributes(shellItem, queryData, navigationRequest.Request.Section == null);
+				ShellApplyParameters.ApplyParameters(new ShellLifecycleArgs(shellItem, pathParts[0], currentRoute));
 				bool navigatedToNewShellElement = false;
 
 				if (shellSection != null && shellContent != null)
 				{
-					Shell.ApplyQueryAttributes(shellContent, queryData, navigationRequest.Request.GlobalRoutes.Count == 0);
+					ShellApplyParameters.ApplyParameters(new ShellLifecycleArgs(shellContent, pathParts[2], currentRoute));
 					if (shellSection.CurrentItem != shellContent)
 					{
 						shellSection.SetValueFromRenderer(ShellSection.CurrentItemProperty, shellContent);
@@ -476,7 +504,7 @@ namespace Xamarin.Forms
 
 				if (shellSection != null)
 				{
-					Shell.ApplyQueryAttributes(shellSection, queryData, navigationRequest.Request.Content == null);
+					ShellApplyParameters.ApplyParameters(new ShellLifecycleArgs(shellSection, pathParts[1], currentRoute));
 					if (shellItem.CurrentItem != shellSection)
 					{
 						shellItem.SetValueFromRenderer(ShellItem.CurrentItemProperty, shellSection);
@@ -494,24 +522,24 @@ namespace Xamarin.Forms
 				{
 					// - navigating to new shell element so just pop everything
 					// - or route contains no global route requests
-					if (navigatedToNewShellElement || navigationRequest.Request.GlobalRoutes.Count == 0)
+					if (navigatedToNewShellElement || globalRoutes.Count == 0)
 					{
 						await currentShellSection.PopModalStackToPage(null, animate);
 					}
 				}
 
-				if (navigationRequest.Request.GlobalRoutes.Count > 0 && navigationRequest.StackRequest != NavigationRequest.WhatToDoWithTheStack.ReplaceIt)
+				if (globalRoutes.Count > 0 && !replaceEntireStack)
 				{
 					// TODO get rid of this hack and fix so if there's a stack the current page doesn't display
 					Device.BeginInvokeOnMainThread(async () =>
 					{
-						await CurrentItem.CurrentItem.GoToAsync(navigationRequest, queryData, animate);
+						await CurrentItem.CurrentItem.GoToAsync(navigationRequest, animate, state.FullLocation);
 					});
 				}
 			}
 			else
 			{
-				await CurrentItem.CurrentItem.GoToAsync(navigationRequest, queryData, animate);
+				await CurrentItem.CurrentItem.GoToAsync(navigationRequest, animate, state.FullLocation);
 			}
 
 			_accumulateNavigatedEvents = false;
@@ -564,6 +592,54 @@ namespace Xamarin.Forms
 				element.SetValue(ShellContent.QueryAttributesProperty, query);
 		}
 
+		// TODO cleanup duplication between here and GetNavigationParameters
+		internal static Dictionary<string, string> GetNavigationParameters(Element element, string queryString, bool isLastItem)
+		{
+			var query = ParseQueryString(queryString);
+
+			string prefix = "";
+			if (!isLastItem)
+			{
+				var route = Routing.GetRoute(element);
+				if (string.IsNullOrEmpty(route) || route.StartsWith(Routing.ImplicitPrefix, StringComparison.Ordinal))
+					return new Dictionary<string, string>();
+				prefix = route + ".";
+			}
+
+			//if the lastItem is implicitly wrapped, get the actual ShellContent
+			else if (isLastItem)
+			{
+				if (element is ShellItem shellitem && shellitem.Items.FirstOrDefault() is ShellSection section)
+					element = section;
+				if (element is ShellSection shellsection && shellsection.Items.FirstOrDefault() is ShellContent content)
+					element = content;
+				if (element is ShellContent shellcontent && shellcontent.Content is Element e)
+					element = e;
+			}
+
+			if (!(element is BaseShellItem baseShellItem))
+				baseShellItem = element?.Parent as BaseShellItem;
+
+			//filter the query to only apply the keys with matching prefix
+			var filteredQuery = new Dictionary<string, string>(query.Count);
+			foreach (var q in query)
+			{
+				if (!q.Key.StartsWith(prefix, StringComparison.Ordinal))
+					continue;
+				var key = q.Key.Substring(prefix.Length);
+				if (key.Contains("."))
+					continue;
+				filteredQuery.Add(key, q.Value);
+			}
+
+			if (baseShellItem != null && baseShellItem is ShellContent)
+				return filteredQuery;
+			else if (isLastItem)
+				return query;
+
+			return new Dictionary<string, string>();
+		}
+
 		ShellNavigationState GetNavigationState(ShellItem shellItem, ShellSection shellSection, ShellContent shellContent, IReadOnlyList<Page> sectionStack, IReadOnlyList<Page> modalStack)
 		{
 			StringBuilder stateBuilder = new StringBuilder($"//");
@@ -610,7 +686,7 @@ namespace Xamarin.Forms
 						{
 							var topPage = modalStack[i];
 
-							if(i > 0)
+							if (i > 0)
 								stateBuilder.Append("/");
 
 							stateBuilder.Append(Routing.GetRoute(topPage));
@@ -672,8 +748,9 @@ namespace Xamarin.Forms
 
 		public Shell()
 		{
+			SetNavigationService(navigationService);
 			Navigation = new NavigationImpl(this);
-			Route = Routing.GenerateImplicitRoute("shell");
+			Route = ShellUriHandler.Route;
 			Initialize();
 		}
 
@@ -804,9 +881,9 @@ namespace Xamarin.Forms
 			set => Routing.SetRoute(this, value);
 		}
 
-		internal string RouteHost { get; set; } = "shell";
+		internal string RouteHost => ShellUriHandler.RouteHost;
 
-		internal string RouteScheme { get; set; } = "app";
+		internal string RouteScheme => ShellUriHandler.RouteScheme;
 
 		View FlyoutHeaderView
 		{
@@ -1233,6 +1310,26 @@ namespace Xamarin.Forms
 			ExperimentalFlags.VerifyFlagEnabled(nameof(Shell), ExperimentalFlags.ShellUWPExperimental);
 		}
 
+		#region Navigation Interfaces
+
+		ShellNavigationService navigationService = new ShellNavigationService();
+		internal IShellUriParser ShellUriParser;
+		internal IShellApplyParameters ShellApplyParameters;
+		internal IShellNavigationRequest ShellNavigationRequest;
+		internal IShellContentCreator ShellContentCreator;
+		internal IShellPartAppearing ShellPartAppearing;
+
+		public void SetNavigationService(object service)
+		{
+			ShellUriParser = service as IShellUriParser ?? ShellUriParser ?? navigationService;
+			ShellApplyParameters = service as IShellApplyParameters ?? ShellApplyParameters ?? navigationService;
+			ShellNavigationRequest = service as IShellNavigationRequest ?? ShellNavigationRequest ?? navigationService;
+			ShellContentCreator = service as IShellContentCreator ?? ShellContentCreator ?? navigationService;
+			ShellPartAppearing = service as IShellPartAppearing ?? ShellPartAppearing ?? navigationService;
+		}
+
+		#endregion
+
 		class NavigationImpl : NavigationProxy
 		{
 			readonly Shell _shell;
@@ -1273,7 +1370,7 @@ namespace Xamarin.Forms
 				if (ModalStack.Count == 0)
 					_shell.CurrentItem.SendDisappearing();
 
-				if(!_shell.CurrentItem.CurrentItem.IsPushingModalStack)
+				if (!_shell.CurrentItem.CurrentItem.IsPushingModalStack)
 					modal.SendAppearing();
 
 				return base.OnPushModal(modal, animated);
