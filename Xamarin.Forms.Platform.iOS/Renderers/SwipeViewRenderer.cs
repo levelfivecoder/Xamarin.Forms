@@ -41,10 +41,10 @@ namespace Xamarin.Forms.Platform.iOS
 		{
 			SwipeView.VerifySwipeViewFlagEnabled(nameof(SwipeViewRenderer));
 
-			_tapGestureRecognizer = new UITapGestureRecognizer(OnTap)
-			{
-				CancelsTouchesInView = true
-			};
+			_tapGestureRecognizer = new UITapGestureRecognizer(OnTap);
+
+			_tapGestureRecognizer.ShouldReceiveTouch = OnShouldReceiveTouch;
+
 			AddGestureRecognizer(_tapGestureRecognizer);
 		}
 
@@ -133,7 +133,7 @@ namespace Xamarin.Forms.Platform.iOS
 		{
 			UIColor backgroundColor;
 
-			if (Forms.IsiOS13OrNewer)
+			if (Forms.IsiOS11OrNewer)
 				backgroundColor = UIColor.SystemBackgroundColor;
 			else
 				backgroundColor = UIColor.White;
@@ -262,6 +262,12 @@ namespace Xamarin.Forms.Platform.iOS
 
 		public override void TouchesEnded(NSSet touches, UIEvent evt)
 		{
+			if (_swipeOffset != 0)
+			{
+				TouchesCancelled(touches, evt);
+				return;
+			}
+
 			var navigationController = GetUINavigationController(GetViewController());
 
 			if (navigationController != null)
@@ -282,6 +288,11 @@ namespace Xamarin.Forms.Platform.iOS
 			HandleTouchInteractions(touches, GestureStatus.Canceled);
 
 			base.TouchesCancelled(touches, evt);
+		}
+
+		bool OnShouldReceiveTouch(UIGestureRecognizer recognizer, UITouch touch)
+		{
+			return _swipeOffset != 0;
 		}
 
 		void UpdateContent()
@@ -711,6 +722,8 @@ namespace Xamarin.Forms.Platform.iOS
 				_swipeItemsRect.Clear();
 				_swipeItemsRect = null;
 			}
+
+			_swipeOffset = 0;
 		}
 
 		private void ResetSwipe()
