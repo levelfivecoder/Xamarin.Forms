@@ -9,7 +9,7 @@ namespace Xamarin.Forms.Controls.GalleryPages.SwipeViewGalleries
 		{
 			var button = new Button
 			{
-				Text = "Enable SwipeView and CarouselView",
+				Text = "Enable SwipeView",
 				AutomationId = "EnableSwipeView"
 			};
 			button.Clicked += ButtonClicked;
@@ -43,7 +43,7 @@ namespace Xamarin.Forms.Controls.GalleryPages.SwipeViewGalleries
 		{
 			var button = sender as Button;
 
-			button.Text = "SwipeView and CarouselView Enabled!";
+			button.Text = "SwipeView Enabled!";
 			button.TextColor = Color.Black;
 			button.IsEnabled = false;
 
