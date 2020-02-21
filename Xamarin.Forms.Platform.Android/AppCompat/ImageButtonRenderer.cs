@@ -196,12 +196,23 @@ namespace Xamarin.Forms.Platform.Android
 			ElementChanged?.Invoke(this, new VisualElementChangedEventArgs(e.OldElement, e.NewElement));
 		}
 
+		protected override void OnMeasure(int widthMeasureSpec, int heightMeasureSpec)
+		{
+			base.OnMeasure(widthMeasureSpec, heightMeasureSpec);
+		}
 
+		protected override void OnLayout(bool changed, int left, int top, int right, int bottom)
+		{
+			base.OnLayout(changed, left, top, right, bottom);
+		}
+
+		int drawCount = 0;
 		public override void Draw(Canvas canvas)
 		{
 			if (Element == null)
 				return;
 
+			drawCount++;
 			var backgroundDrawable = _backgroundTracker?.BackgroundDrawable;
 			RectF drawableBounds = null;
 
@@ -210,8 +221,8 @@ namespace Xamarin.Forms.Platform.Android
 				if ((int)Forms.SdkInt >= 18 && backgroundDrawable != null)
 				{
 					var outlineBounds = backgroundDrawable.GetPaddingBounds(canvas.Width, canvas.Height);
-					var width = (float)MeasuredWidth;
-					var height = (float)MeasuredHeight;
+					var width = (float)canvas.Width;
+					var height = (float)canvas.Height;
 
 					var widthRatio = 1f;
 					var heightRatio = 1f;
@@ -246,6 +257,8 @@ namespace Xamarin.Forms.Platform.Android
 			{
 				base.Draw(canvas);
 			}
+
+			System.Diagnostics.Debug.Write($"END {drawCount}");
 		}
 
 		void IVisualElementRenderer.SetLabelFor(int? id)
