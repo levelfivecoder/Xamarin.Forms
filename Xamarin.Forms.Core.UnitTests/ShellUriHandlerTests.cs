@@ -63,7 +63,6 @@ namespace Xamarin.Forms.Core.UnitTests
 		[Test]
 		public async Task GlobalNavigateTwice()
 		{
-
 			var shell = new Shell();
 			var item1 = CreateShellItem(asImplicit: true, shellContentRoute: "rootlevelcontent1");
 

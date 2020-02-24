@@ -452,8 +452,8 @@ namespace Xamarin.Forms
 
 			ShellRouteState navigationRequest = await ShellUriParser.ParseAsync(new ShellUriParserArgs(this, state.FullLocation));
 			navigationRequest = await ShellNavigationRequest.NavigatingToAsync(new ShellNavigationArgs(this, navigationRequest));
-
-			if (navigationRequest == null || navigationRequest == this.RouteState)
+			
+			if (navigationRequest == null || navigationRequest == RouteState)
 			{
 				return;
 			}
@@ -469,7 +469,19 @@ namespace Xamarin.Forms
 
 			var currentRoute = navigationRequest.CurrentRoute;
 			var pathParts = currentRoute.PathParts;
-			IReadOnlyList<PathPart> globalRoutes = pathParts.Skip(3).ToList();
+			
+			IReadOnlyList<PathPart> globalRoutes = null;
+			if (replaceEntireStack)
+			{
+				globalRoutes = pathParts.Skip(3).ToList();
+			}
+			else
+			{
+				// skip all global routes already pushed
+				globalRoutes = pathParts.Skip(RouteState.CurrentRoute.PathParts.Count).ToList();
+			}
+
+			globalRoutes = globalRoutes ?? new List<PathPart>();
 
 			ApplyQueryAttributes(this, currentRoute.NavigationParameters, false);
 
@@ -484,7 +496,7 @@ namespace Xamarin.Forms
 			if (globalRoutes.Count > 0 && nextActiveSection != null && replaceEntireStack)
 			{
 				modalStackPreBuilt = true;
-				await nextActiveSection.GoToAsync(navigationRequest, false, state.FullLocation);
+				await nextActiveSection.GoToAsync(navigationRequest, false, state.FullLocation, RouteState);
 			}
 
 			if (shellItem != null)
@@ -533,13 +545,13 @@ namespace Xamarin.Forms
 					// TODO get rid of this hack and fix so if there's a stack the current page doesn't display
 					Device.BeginInvokeOnMainThread(async () =>
 					{
-						await CurrentItem.CurrentItem.GoToAsync(navigationRequest, animate, state.FullLocation);
+						await CurrentItem.CurrentItem.GoToAsync(navigationRequest, animate, state.FullLocation, RouteState);
 					});
 				}
 			}
 			else
 			{
-				await CurrentItem.CurrentItem.GoToAsync(navigationRequest, animate, state.FullLocation);
+				await CurrentItem.CurrentItem.GoToAsync(navigationRequest, animate, state.FullLocation, RouteState);
 			}
 
 			_accumulateNavigatedEvents = false;

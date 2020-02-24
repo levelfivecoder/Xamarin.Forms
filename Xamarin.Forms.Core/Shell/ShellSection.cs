@@ -284,26 +284,37 @@ namespace Xamarin.Forms
 			return (ShellSection)(ShellContent)page;
 		}
 
-		internal async Task GoToAsync(ShellRouteState navigationRequest, bool animate, Uri uri)
+		internal async Task GoToAsync(ShellRouteState navigationRequest, bool animate, Uri uri, ShellRouteState shellRouteState)
 		{
 			List<Page> navStack = null;
 			string route = String.Empty;
 			var currentRoute = navigationRequest.CurrentRoute;
 			var pathParts = currentRoute.PathParts;
-			IReadOnlyList<PathPart> globalRoutes = pathParts.Skip(3).ToList();
-
-			if (pathParts == null || pathParts.Count <= 3)
-			{
-				await Navigation.PopToRootAsync(animate);
-				return;
-			}
-
+			
 			uri = ShellUriHandler.FormatUri(uri);
 			bool replaceEntireStack = false;
 			if (uri.IsAbsoluteUri)
 				replaceEntireStack = true;
 			else if (uri.OriginalString.StartsWith("//", StringComparison.Ordinal) || uri.OriginalString.StartsWith("\\\\", StringComparison.Ordinal))
 				replaceEntireStack = true;
+
+			IReadOnlyList<PathPart> globalRoutes = null;
+			if (replaceEntireStack)
+			{
+				globalRoutes = pathParts.Skip(3).ToList();
+			}
+			else
+			{
+				// skip all global routes already pushed
+				globalRoutes = pathParts.Skip(shellRouteState.CurrentRoute.PathParts.Count).ToList();
+			}
+
+			if (globalRoutes == null || globalRoutes.Count == 0)
+			{
+				await Navigation.PopToRootAsync(animate);
+				return;
+			}
+
 
 			int whereToStartNavigation = 0;
 			
@@ -335,7 +346,11 @@ namespace Xamarin.Forms
 							// pop everything after this route
 							popCount = i + 2;
 							whereToStartNavigation++;
-							ShellApplyParameters.ApplyParameters(new ShellLifecycleArgs((BaseShellItem)LogicalChildren[i], globalRoutes[i], currentRoute));
+							
+							if (i < LogicalChildren.Count)
+								ShellApplyParameters.ApplyParameters(new ShellLifecycleArgs((BaseShellItem)LogicalChildren[i], globalRoutes[i], currentRoute));
+							else
+								Shell.ApplyQueryAttributes(navPage, currentRoute.NavigationParameters, isLast);
 
 							// If we're not on the last loop of the stack then continue
 							// otherwise pop the rest of the stack
