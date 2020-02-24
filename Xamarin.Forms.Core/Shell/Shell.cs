@@ -551,6 +551,9 @@ namespace Xamarin.Forms
 
 		internal static void ApplyQueryAttributes(Element element, IDictionary<string, string> query, bool isLastItem)
 		{
+			if (query == null)
+				return;
+
 			string prefix = "";
 			if (!isLastItem)
 			{

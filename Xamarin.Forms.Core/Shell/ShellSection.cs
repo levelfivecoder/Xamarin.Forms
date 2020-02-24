@@ -286,6 +286,7 @@ namespace Xamarin.Forms
 
 		internal async Task GoToAsync(ShellRouteState navigationRequest, bool animate, Uri uri)
 		{
+			List<Page> navStack = null;
 			string route = String.Empty;
 			var currentRoute = navigationRequest.CurrentRoute;
 			var pathParts = currentRoute.PathParts;
