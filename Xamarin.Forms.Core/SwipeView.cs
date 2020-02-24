@@ -54,6 +54,9 @@ namespace Xamarin.Forms
 			set { SetValue(BottomItemsProperty, value); }
 		}
 
+		[EditorBrowsable(EditorBrowsableState.Never)]
+		public bool IsOpen { get; set; }
+
 		public event EventHandler<SwipeStartedEventArgs> SwipeStarted;
 		public event EventHandler<SwipeChangingEventArgs> SwipeChanging;
 		public event EventHandler<SwipeEndedEventArgs> SwipeEnded;

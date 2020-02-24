@@ -566,6 +566,7 @@ namespace Xamarin.Forms.Platform.iOS
 				return;
 
 			_swipeOffset = GetSwipeOffset(_initialPoint, point);
+			UpdateIsOpen(_swipeOffset != 0);
 
 			UpdateSwipeItems();
 
@@ -724,6 +725,8 @@ namespace Xamarin.Forms.Platform.iOS
 			}
 
 			_swipeOffset = 0;
+
+			UpdateIsOpen(false);
 		}
 
 		private void ResetSwipe()
@@ -1079,6 +1082,11 @@ namespace Xamarin.Forms.Platform.iOS
 				return;
 
 			swipeItem.OnInvoked();
+		}
+
+		void UpdateIsOpen(bool isOpen)
+		{
+			Element.IsOpen = isOpen;
 		}
 
 		void OnParentScrolled(object sender, ScrolledEventArgs e)
