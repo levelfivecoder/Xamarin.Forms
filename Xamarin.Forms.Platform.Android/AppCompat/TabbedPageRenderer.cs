@@ -33,7 +33,13 @@ using System.Collections.Generic;
 
 namespace Xamarin.Forms.Platform.Android.AppCompat
 {
-	public class TabbedPageRenderer : VisualElementRenderer<TabbedPage>, TabLayout.IOnTabSelectedListener, ViewPager.IOnPageChangeListener, IManageFragments, BottomNavigationView.IOnNavigationItemSelectedListener
+	public class TabbedPageRenderer : VisualElementRenderer<TabbedPage>,
+#if __ANDROID_29__
+		TabLayout.IOnTabSelectedListener2, 
+#else
+		TabLayout.IOnTabSelectedListener,
+#endif
+		ViewPager.IOnPageChangeListener, IManageFragments, BottomNavigationView.IOnNavigationItemSelectedListener
 	{
 		Drawable _backgroundDrawable;
 		Drawable _wrappedBackgroundDrawable;
