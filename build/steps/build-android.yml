@@ -27,14 +27,11 @@ jobs:
     strategy:
       matrix:
         android_legacy:
-          androidProjectArguments: '/t:"Rebuild;SignAndroidPackage" /p:ANDROID_RENDERERS="LEGACY" /bl:$(Build.ArtifactStagingDirectory)/android-legacy.binlog'    
-          targetFolder: 'Xamarin.Forms.ControlGallery.Android/legacyRenderers/'  
+          renderers: 'LEGACY'
         android_preAppCompat:
-          androidProjectArguments: '/t:"Rebuild;SignAndroidPackage" /p:ANDROID_RENDERERS="PREAPPCOMPAT" /bl:$(Build.ArtifactStagingDirectory)/android-preappcompact.binlog'
-          targetFolder: 'Xamarin.Forms.ControlGallery.Android/preAppCompat/'
+          renderers: 'PREAPPCOMPAT'
         android_newRenderers:
-          androidProjectArguments: '/t:"Rebuild;SignAndroidPackage" /p:ANDROID_RENDERERS="FAST" /bl:$(Build.ArtifactStagingDirectory)/android-newrenderers.binlog'
-          targetFolder: 'Xamarin.Forms.ControlGallery.Android/newRenderers/'
+          renderers: 'FAST'
     steps:
       - checkout: self
         clean: true
@@ -98,26 +95,26 @@ jobs:
           configuration: ${{ parameters.buildConfiguration }}
 
       - task: MSBuild@1
-        displayName: 'Build Android $(androidProjectArguments)'
+        displayName: 'Build Android $(renderers)'
         inputs:
           solution: ${{ parameters.androidProjectPath }}
           configuration: ${{ parameters.buildConfiguration }}
-          msbuildArguments: $(androidProjectArguments)
+          msbuildArguments: '/t:"Rebuild;SignAndroidPackage" /p:ANDROID_RENDERERS="$(renderers)" /bl:$(Build.ArtifactStagingDirectory)/android-$(renderers).binlog'
 
       - task: CopyFiles@2
-        displayName: 'Copy $(androidProjectArguments)'
+        displayName: 'Copy $(renderers)'
         inputs:
           SourceFolder: Xamarin.Forms.ControlGallery.Android/bin/${{ parameters.buildConfiguration }}/
           Contents: '**/*.apk'
-          TargetFolder: $(targetFolder)
+          TargetFolder: 'Xamarin.Forms.ControlGallery.Android/$(renderers)/'
           CleanTargetFolder: true
           OverWrite: true
 
       - task: CopyFiles@2
-        displayName: 'Copy Android apk $(androidProjectArguments) for UITest'
+        displayName: 'Copy Android apk $(renderers) for UITest'
         inputs:
           Contents: |
-            $(targetFolder)/$(ApkName)
+            Xamarin.Forms.ControlGallery.Android/$(renderers)/$(ApkName)
           TargetFolder: '$(build.artifactstagingdirectory)/androidApp'
           CleanTargetFolder: true
 
