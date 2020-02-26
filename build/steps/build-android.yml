@@ -12,7 +12,6 @@ parameters:
   buildConfiguration : 'Debug'
   nugetVersion: $(NUGET_VERSION)
   monoVersion: $(MONO_VERSION)
-  apkTargetFolder: '$(build.artifactstagingdirectory)/androidApp'
   provisionatorPath: 'build/provisioning/provisioning.csx'
   provisionatorExtraArguments: ''
 
@@ -119,7 +118,7 @@ jobs:
         inputs:
           Contents: |
             $(targetFolder)/$(ApkName)
-          TargetFolder: $(targetFolder)
+          TargetFolder: '$(build.artifactstagingdirectory)/androidApp'
           CleanTargetFolder: true
 
       - task: PublishBuildArtifacts@1
