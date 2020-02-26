@@ -17,7 +17,7 @@ parameters:
   provisionatorExtraArguments: ''
 
 jobs:
-  - job: ${{ parameters.name }}
+  - job: $(androidProjectArguments)
     workspace:
       clean: all
     displayName: ${{ parameters.displayName }}
@@ -99,14 +99,14 @@ jobs:
           configuration: ${{ parameters.buildConfiguration }}
 
       - task: MSBuild@1
-        displayName: 'Build Android ${{ parameters.name }}'
+        displayName: 'Build Android $(androidProjectArguments)'
         inputs:
           solution: ${{ parameters.androidProjectPath }}
           configuration: ${{ parameters.buildConfiguration }}
           msbuildArguments: $(androidProjectArguments)
 
       - task: CopyFiles@2
-        displayName: 'Copy ${{ parameters.name }}'
+        displayName: 'Copy $(androidProjectArguments)'
         inputs:
           SourceFolder: Xamarin.Forms.ControlGallery.Android/bin/${{ parameters.buildConfiguration }}/
           Contents: '**/*.apk'
@@ -115,7 +115,7 @@ jobs:
           OverWrite: true
 
       - task: CopyFiles@2
-        displayName: 'Copy Android apk ${{ parameters.name }} for UITest'
+        displayName: 'Copy Android apk $(androidProjectArguments) for UITest'
         inputs:
           Contents: |
             $(targetFolder)/$(ApkName)
