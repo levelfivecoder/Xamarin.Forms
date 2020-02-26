@@ -8,7 +8,6 @@ parameters:
   postBuildSteps: []  # any additional steps to run after the build
   slnPath : 'Xamarin.Forms.sln'
   buildTaskPath : 'Xamarin.Forms.Build.Tasks/Xamarin.Forms.Build.Tasks.csproj'
-  androidPath : 'Xamarin.Forms.ControlGallery.Android'
   androidProjectPath : 'Xamarin.Forms.ControlGallery.Android/Xamarin.Forms.ControlGallery.Android.csproj'
   buildConfiguration : 'Debug'
   nugetVersion: $(NUGET_VERSION)
@@ -30,13 +29,13 @@ jobs:
       matrix:
         android_legacy:
           androidProjectArguments: '/t:"Rebuild;SignAndroidPackage" /p:ANDROID_RENDERERS="LEGACY" /bl:$(Build.ArtifactStagingDirectory)/android-legacy.binlog'    
-          targetFolder: Xamarin.Forms.ControlGallery.Android/legacyRenderers/  
+          targetFolder: 'Xamarin.Forms.ControlGallery.Android/legacyRenderers/'  
         android_preAppCompat:
           androidProjectArguments: '/t:"Rebuild;SignAndroidPackage" /p:ANDROID_RENDERERS="PREAPPCOMPAT" /bl:$(Build.ArtifactStagingDirectory)/android-preappcompact.binlog'
-          targetFolder: Xamarin.Forms.ControlGallery.Android/preAppCompat/
+          targetFolder: 'Xamarin.Forms.ControlGallery.Android/preAppCompat/'
         android_newRenderers:
           androidProjectArguments: '/t:"Rebuild;SignAndroidPackage" /p:ANDROID_RENDERERS="FAST" /bl:$(Build.ArtifactStagingDirectory)/android-newrenderers.binlog'
-          targetFolder: Xamarin.Forms.ControlGallery.Android/newRenderers/
+          targetFolder: 'Xamarin.Forms.ControlGallery.Android/newRenderers/'
     steps:
       - checkout: self
         clean: true
@@ -104,14 +103,14 @@ jobs:
         inputs:
           solution: ${{ parameters.androidProjectPath }}
           configuration: ${{ parameters.buildConfiguration }}
-          msbuildArguments: ${androidProjectArguments}
+          msbuildArguments: $(androidProjectArguments)
 
       - task: CopyFiles@2
         displayName: 'Copy ${{ parameters.name }}'
         inputs:
-          SourceFolder: ${{ parameters.androidPath }}/bin/${{ parameters.buildConfiguration }}/
+          SourceFolder: Xamarin.Forms.ControlGallery.Android/bin/${{ parameters.buildConfiguration }}/
           Contents: '**/*.apk'
-          TargetFolder: ${targetFolder}
+          TargetFolder: $(targetFolder)
           CleanTargetFolder: true
           OverWrite: true
 
@@ -119,8 +118,8 @@ jobs:
         displayName: 'Copy Android apk ${{ parameters.name }} for UITest'
         inputs:
           Contents: |
-            ${targetFolder}/$(ApkName)
-          TargetFolder: ${targetFolder}
+            $(targetFolder)/$(ApkName)
+          TargetFolder: $(targetFolder)
           CleanTargetFolder: true
 
       - task: PublishBuildArtifacts@1
