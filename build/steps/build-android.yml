@@ -16,7 +16,7 @@ parameters:
   provisionatorExtraArguments: ''
 
 jobs:
-  - job: $(androidProjectArguments)
+  - job: ${{ parameters.name }}
     workspace:
       clean: all
     displayName: ${{ parameters.displayName }}
