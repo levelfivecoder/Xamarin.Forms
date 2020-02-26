@@ -73,6 +73,8 @@ stages:
         buildPlatform: $(DefaultBuildPlatform)
         provisionatorPath : 'build/provisioning/provisioning.csx'
     - job: nuget_pack
+      workspace:
+        clean: all
       dependsOn:
         - win
       displayName: Nuget Phase
@@ -106,6 +108,8 @@ stages:
       dependsOn: []
     jobs:
       - job: osx
+        workspace:
+          clean: all
         displayName: OSX Phase
         pool:
           name: $(macOSVmImage)
