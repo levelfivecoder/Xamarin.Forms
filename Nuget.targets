@@ -9,7 +9,7 @@
     <PackageReference Include="Xamarin.Forms.DualScreen" Version="$(XamarinFormsVersion)">
     </PackageReference>
   </ItemGroup>
-  <ItemGroup Condition=" $(TargetFramework.StartsWith('MonoAndroid')) ">
+  <ItemGroup Condition=" $(TargetFrameworkIdentifier.StartsWith('MonoAndroid')) ">
     <PackageReference Include="Xamarin.Forms.AppLinks" Version="$(XamarinFormsVersion)">
     </PackageReference>
   </ItemGroup>

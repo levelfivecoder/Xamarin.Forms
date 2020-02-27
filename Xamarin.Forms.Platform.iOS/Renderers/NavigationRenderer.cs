@@ -626,7 +626,7 @@ namespace Xamarin.Forms.Platform.iOS
 				? UINavigationBar.Appearance.BarTintColor
 				: barBackgroundColor.ToUIColor();
 			}
-			else
+			/*else
 			{
 				var navigationBarAppearance = new UINavigationBarAppearance();
 
@@ -641,7 +641,7 @@ namespace Xamarin.Forms.Platform.iOS
 				NavigationBar.CompactAppearance = navigationBarAppearance;
 				NavigationBar.StandardAppearance = navigationBarAppearance;
 				NavigationBar.ScrollEdgeAppearance = navigationBarAppearance;
-			}
+			}*/
 		}
 
 		void UpdateBarTextColor()
