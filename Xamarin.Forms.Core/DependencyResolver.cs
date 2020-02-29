@@ -65,7 +65,9 @@ namespace Xamarin.Forms.Internals
 					if (type.GetTypeInfo().DeclaredConstructors.Any(info => info.GetParameters().Length == args.Length))
 					{
 						Profile.FramePartition("Activate L");
-						throw new Exception("OOPS!");
+						result = Activator.CreateInstance(type, args);
+						if (result == null)
+							throw new Exception($"Failed to find matching .ctor for {type}");
 						//result = Anticipator.Singleton.Activate(type, args);
 					}
 				}

@@ -26,21 +26,21 @@ namespace Xamarin.Forms.Platform.Android
 		{
 			object result = null;
 
-			if (type == typeof(FLabelRenderer))
-				result = new FLabelRenderer((Context)arguments[0]);
+			//if (type == typeof(FLabelRenderer))
+			//	result = new FLabelRenderer((Context)arguments[0]);
 
-			if (type == typeof(PageRenderer))
-				result = new PageRenderer((Context)arguments[0]);
+			//if (type == typeof(PageRenderer))
+			//	result = new PageRenderer((Context)arguments[0]);
 
-			if (type == typeof(ListViewRenderer))
-				result = new ListViewRenderer((Context)arguments[0]);
+			//if (type == typeof(ListViewRenderer))
+			//	result = new ListViewRenderer((Context)arguments[0]);
 
-			var hitOrMiss = result == null ? "MISS" : "HIT";
+			//var hitOrMiss = result == null ? "MISS" : "HIT";
 
-			if (result == null)
-				result = base.Activate(type, arguments);
+			//if (result == null)
+			//	result = base.Activate(type, arguments);
 
-			Log("ACTIVATOR {0}: {1}", hitOrMiss, type.Name);
+			//Log("ACTIVATOR {0}: {1}", hitOrMiss, type.Name);
 			return result;
 		}
 	}

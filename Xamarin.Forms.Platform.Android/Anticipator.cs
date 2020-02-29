@@ -16,6 +16,8 @@ using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Xamarin.Forms.Internals;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 
 namespace Xamarin.Forms.Platform.Android
 {
@@ -24,10 +26,31 @@ namespace Xamarin.Forms.Platform.Android
 		object Get();
 	}
 
-	public sealed class AndroidAnticipator : Anticipator
+	public sealed class AndroidAnticipator
 	{
 		static class Key
 		{
+			internal struct ClassConstruction : IAnticipatable
+			{
+				private Type _type;
+
+				public ClassConstruction(Type type)
+				{
+					_type = type;
+				}
+
+				object IAnticipatable.Get()
+				{
+					RuntimeHelpers.RunClassConstructor(_type.TypeHandle);
+					return null;
+				}
+
+				public override string ToString()
+				{
+					return ".cctor=" + _type.Name;
+				}
+			}
+
 			internal struct SdkVersion : IAnticipatable
 			{
 				object IAnticipatable.Get()
@@ -58,7 +81,7 @@ namespace Xamarin.Forms.Platform.Android
 				}
 
 				public override string ToString()
-					=> $"{nameof(IdedResourceExists)}, id={ResourceName(Id)}";
+					=> $"{nameof(IdedResourceExists)}, id={Id}, '{ResourceName(Id)}'";
 			}
 
 			internal struct NamedResourceExists : IAnticipatable
@@ -111,7 +134,7 @@ namespace Xamarin.Forms.Platform.Android
 				}
 
 				public override string ToString()
-					=> $"{nameof(InflateResource)}, id={ResourceName(Id)}";
+					=> $"{nameof(InflateResource)}, id={Id}, '{ResourceName(Id)}'";
 			}
 
 			internal struct InflateIdedResourceFromContext : IAnticipatable
@@ -135,7 +158,7 @@ namespace Xamarin.Forms.Platform.Android
 				}
 
 				public override string ToString()
-					=> $"{nameof(InflateResource)}, id={ResourceName(Id)}";
+					=> $"{nameof(InflateResource)}, id={Id}, '{ResourceName(Id)}'";
 			}
 
 			internal struct ActivateView :
@@ -178,8 +201,8 @@ namespace Xamarin.Forms.Platform.Android
 
 			s_singleton.AnticipateValue(new Key.SdkVersion());
 
-			s_singleton.AnticipateValue(new ClassConstruction(typeof(Resource.Layout)));
-			s_singleton.AnticipateValue(new ClassConstruction(typeof(Resource.Attribute)));
+			s_singleton.AnticipateValue(new Key.ClassConstruction(typeof(Resource.Layout)));
+			s_singleton.AnticipateValue(new Key.ClassConstruction(typeof(Resource.Attribute)));
 
 			//s_singleton.AnticipateAllocation(new Key.ActivateView(context, typeof(AToolbar), o => new AToolbar(o)));
 			s_singleton.AnticipateAllocation(new Key.ActivateView(context.BaseContext, typeof(ARelativeLayout), o => new ARelativeLayout(o)));
@@ -190,8 +213,8 @@ namespace Xamarin.Forms.Platform.Android
 
 			s_singleton.AnticipateAllocation(new Key.InflateIdedResourceFromContext(context, Resource.Layout.FlyoutContent));
 
-			s_singleton.AnticipateAllocation(new Key.ActivateView(context, typeof(FLabelRenderer)));
-			s_singleton.AnticipateAllocation(new Key.ActivateView(context, typeof(PageRenderer)));
+			//s_singleton.AnticipateAllocation(new Key.ActivateView(context, typeof(FLabelRenderer)));
+			//s_singleton.AnticipateAllocation(new Key.ActivateView(context, typeof(PageRenderer)));
 
 			//s_threadPool.Schedule(() => {
 			//	new PageRenderer(s_context);
@@ -205,7 +228,7 @@ namespace Xamarin.Forms.Platform.Android
 			//});
 		}
 
-		internal static void Join()
+		public static void Join()
 			=> s_singleton.Dispose();
 
 		internal static ABuildVersionCodes SdkVersion
@@ -233,31 +256,7 @@ namespace Xamarin.Forms.Platform.Android
 			[Resource.Layout.FlyoutContent] = nameof(Resource.Layout.FlyoutContent),
 		};
 
-		static AndroidAnticipator s_singleton = new AndroidAnticipator();
-
-		//protected override object Activate(Type type, params object[] arguments)
-		//{
-		//	return base.Activate(type, arguments);
-
-		//	object result = null;
-
-		//	if (type == typeof(FLabelRenderer))
-		//		result = new FLabelRenderer((Context)arguments[0]);
-
-		//	if (type == typeof(PageRenderer))
-		//		result = new PageRenderer((Context)arguments[0]);
-
-		//	if (type == typeof(ListViewRenderer))
-		//		result = new ListViewRenderer((Context)arguments[0]);
-
-		//	var hitOrMiss = result == null ? "MISS" : "HIT";
-
-		//	if (result == null)
-		//		result = base.Activate(type, arguments);
-
-		//	Log("ACTIVATOR {0}: {1}", hitOrMiss, type.Name);
-		//	return result;
-		//}
+		static Anticipator s_singleton = new Anticipator();
 	}
 
 	internal class Scheduler
@@ -307,7 +306,64 @@ namespace Xamarin.Forms.Platform.Android
 			=> _done.WaitOne();
 	}
 
-	public abstract class Anticipator
+	struct CpuUsage {
+
+		const string ProcStatPath = "/proc/stat";
+
+		struct TotalIdle
+		{
+			/**
+			 From SO: e.g cpu 79242 0 74306 842486413 756859 6140 67701 0
+			 - 1st column : user = normal processes executing in user mode
+			 - 2nd column : nice = niced processes executing in user mode
+			 - 3rd column : system = processes executing in kernel mode
+			 - 4th column : idle = twiddling thumbs
+			 - 5th column : iowait = waiting for I/O to complete
+			 - 6th column : irq = servicing interrupts
+			 - 7th column : softirq = servicing softirqs
+			**/
+			const int ProcStatColumns = 7;
+			const int ProcStatIdleColumn = 3;
+
+			public int Total;
+			public int Idle;
+
+			public TotalIdle(string procStat)
+			{
+				var splits = procStat.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+				var counts = splits.Skip(1).Select(o => int.Parse(o)).Take(ProcStatColumns).ToArray();
+				Total = counts.Sum();
+				Idle = counts.Skip(ProcStatIdleColumn).First();
+			}
+		}
+
+		public static int operator-(CpuUsage lhs, CpuUsage rhs)
+		{
+			var rhsValue = rhs._totalIdle.Value;
+			var lhsValue = lhs._totalIdle.Value;
+
+			var idle = (double)(lhsValue.Idle - rhsValue.Idle);
+			var total = (double)(lhsValue.Total - rhsValue.Total);
+
+			var idlePercentage = (int)(idle * 100 / total);
+			return 100 - idlePercentage;
+		}
+
+		internal static CpuUsage Now
+			=> new CpuUsage(File.ReadLines(ProcStatPath).First());
+
+		Lazy<TotalIdle> _totalIdle;
+
+		public CpuUsage(string procStat)
+		{
+			_totalIdle = new Lazy<TotalIdle>(() => new TotalIdle(procStat));
+		}
+
+		public override string ToString()
+			=> $"Total={_totalIdle.Value.Total}, Idle={_totalIdle.Value.Idle}";
+	}
+
+	internal sealed class Anticipator
 	{
 		interface IHeapOrCache : IDisposable
 		{
@@ -321,28 +377,54 @@ namespace Xamarin.Forms.Platform.Android
 			{
 				readonly ConcurrentDictionary<object, object> _dictionary
 					= new ConcurrentDictionary<object, object>();
+				readonly ConcurrentDictionary<object, bool> _accessed
+					= new ConcurrentDictionary<object, bool>();
+
+				void Log(string format, params object[] arguments)
+					=> Profile.WriteLog(format, arguments);
 
 				public void Set(object key, object value)
 					=> _dictionary.TryAdd(key, value);
 
 				public bool TryGet(object key, out object value)
-					=> _dictionary.TryGetValue(key, out value);
+				{
+					var result = _dictionary.TryGetValue(key, out value);
+					if (!result)
+						return false;
+
+					if (_accessed.TryAdd(key, true))
+						Log("CACHE HIT: {0}", key);
+
+					return true;
+				}
 
 				public void Dispose()
 				{
 					foreach (var pair in _dictionary)
+					{
+						if (!_accessed.ContainsKey(pair.Key))
+							Log("CACHE UNUSED: {0}", pair.Key);
+
 						(pair.Value as IDisposable)?.Dispose();
+					}
+
+					_dictionary.Clear();
+
+					Log("CACHE DISPOSED");
 				}
 			}
 
 			sealed class Heap : IHeapOrCache
 			{
-				static ConcurrentBag<object> ActivateBag()
+				static ConcurrentBag<object> ActivateBag(object key)
 					=> new ConcurrentBag<object>();
 
 				readonly ConcurrentDictionary<object, object> _dictionary
 					= new ConcurrentDictionary<object, object>();
-				readonly Func<ConcurrentBag<object>> _activateBag = ActivateBag;
+				readonly Func<object, ConcurrentBag<object>> _activateBag = ActivateBag;
+
+				void Log(string format, params object[] arguments)
+					=> Profile.WriteLog(format, arguments);
 
 				ConcurrentBag<object> Get(object key)
 					=> (ConcurrentBag<object>)_dictionary.GetOrAdd(key, _activateBag);
@@ -351,15 +433,26 @@ namespace Xamarin.Forms.Platform.Android
 					=> Get(key).Add(value);
 
 				public bool TryGet(object key, out object value)
-					=> Get(key).TryTake(out value);
+				{
+					var result = Get(key).TryTake(out value);
+					Log("CACHE {0}: {1}", result ? "HIT" : "MISS", key);
+					return true;
+				}
 
 				public void Dispose()
 				{
 					foreach (var pair in _dictionary)
 					{
 						foreach (var value in ((ConcurrentBag<object>)pair.Value))
+						{
+							Log("CACHE UNUSED: {0}", pair.Key);
 							(value as IDisposable)?.Dispose();
+						}
 					}
+
+					_dictionary.Clear();
+
+					Log("HEAP DISPOSED");
 				}
 			}
 
@@ -384,13 +477,10 @@ namespace Xamarin.Forms.Platform.Android
 			public object Get<T>(T key = default)
 				where T : IAnticipatable
 			{
-				if (_heapOrCache.TryGet(key, out var value))
-				{
-					Log("CACHE HIT: {0}", key);
-					return value;
-				}
-				Log("CACHE MISS: {0}", key);
-				return key.Get();
+				if (!_heapOrCache.TryGet(key, out var value))
+					return key.Get();
+				
+				return value;
 			}
 
 			public void Anticipate<T>(T key = default)
@@ -417,37 +507,18 @@ namespace Xamarin.Forms.Platform.Android
 			public void Dispose()
 				=> _heapOrCache.Dispose();
 		}
-		
-		protected struct ClassConstruction : IAnticipatable
-		{
-			private Type _type;
-
-			public ClassConstruction(Type type)
-			{
-				_type = type;
-			}
-
-			object IAnticipatable.Get()
-			{
-				RuntimeHelpers.RunClassConstructor(_type.TypeHandle);
-				return null;
-			}
-
-			public override string ToString()
-			{
-				return ".cctor=" + _type.Name;
-			}
-		}
 
 		readonly Scheduler _scheduler;
 		readonly HeapOrCache _cache;
 		readonly HeapOrCache _heap;
+		readonly CpuUsage __cpuStart;
 
 		internal Anticipator()
 		{
 			_scheduler = new Scheduler();
 			_heap = HeapOrCache.ActivateHeap(_scheduler);
 			_cache = HeapOrCache.ActivateCache(_scheduler);
+			__cpuStart = CpuUsage.Now;
 		}
 
 		internal void AnticipateAllocation<T>(T key = default)
@@ -471,7 +542,14 @@ namespace Xamarin.Forms.Platform.Android
 			_scheduler.Join();
 			_cache.Dispose();
 			_heap.Dispose();
+
+			var cpuNow = CpuUsage.Now;
+
+			Profile.WriteLog("CPU THN {0}", __cpuStart);
+			Profile.WriteLog("CPU NOW {0}", cpuNow);
+			Profile.WriteLog("CPU UTIL {0}%", cpuNow - __cpuStart);
 		}
 
 	}
 }
+ 

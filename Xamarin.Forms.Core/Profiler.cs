@@ -28,7 +28,7 @@ namespace Xamarin.Forms.Internals
 			}
 
 			public override string ToString()
-				=> string.Format(Format, Arguments);
+				=> string.Format(Format, Arguments?.Select(o => (o as Lazy<string>)?.Value ?? o).ToArray());
 		}
 
 		public static List<LogEntry> Log = new List<LogEntry>();
@@ -68,7 +68,6 @@ namespace Xamarin.Forms.Internals
 
 		public static void Stop()
 		{
-			// unwind stack
 			Running = false;
 			while (Stack.Count > 0)
 				Stack.Pop();
