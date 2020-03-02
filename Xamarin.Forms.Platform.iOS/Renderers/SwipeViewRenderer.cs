@@ -14,7 +14,6 @@ namespace Xamarin.Forms.Platform.iOS
 	public class SwipeViewRenderer : ViewRenderer<SwipeView, UIView>
 	{
 		const double SwipeThreshold = 250;
-		const int SwipeThresholdMargin = 0;
 		const double SwipeItemWidth = 100;
 		const double SwipeAnimationDuration = 0.2;
 		const double SwipeMinimumDelta = 10;
@@ -782,22 +781,25 @@ namespace Xamarin.Forms.Platform.iOS
 				Animate(SwipeAnimationDuration, 0.0, UIViewAnimationOptions.CurveEaseIn,
 					() =>
 					{
-						double swipeThreshold = GetSwipeThreshold();
-
-						switch (_swipeDirection)
+						if (_contentView != null)
 						{
-							case SwipeDirection.Left:
-								_contentView.Frame = new CGRect(_originalBounds.X - swipeThreshold, _originalBounds.Y, _originalBounds.Width, _originalBounds.Height);
-								break;
-							case SwipeDirection.Right:
-								_contentView.Frame = new CGRect(_originalBounds.X + swipeThreshold, _originalBounds.Y, _originalBounds.Width, _originalBounds.Height);
-								break;
-							case SwipeDirection.Up:
-								_contentView.Frame = new CGRect(_originalBounds.X, _originalBounds.Y - swipeThreshold, _originalBounds.Width, _originalBounds.Height);
-								break;
-							case SwipeDirection.Down:
-								_contentView.Frame = new CGRect(_originalBounds.X, _originalBounds.Y + swipeThreshold, _originalBounds.Width, _originalBounds.Height);
-								break;
+							double swipeThreshold = GetSwipeThreshold();
+
+							switch (_swipeDirection)
+							{
+								case SwipeDirection.Left:
+									_contentView.Frame = new CGRect(_originalBounds.X - swipeThreshold, _originalBounds.Y, _originalBounds.Width, _originalBounds.Height);
+									break;
+								case SwipeDirection.Right:
+									_contentView.Frame = new CGRect(_originalBounds.X + swipeThreshold, _originalBounds.Y, _originalBounds.Width, _originalBounds.Height);
+									break;
+								case SwipeDirection.Up:
+									_contentView.Frame = new CGRect(_originalBounds.X, _originalBounds.Y - swipeThreshold, _originalBounds.Width, _originalBounds.Height);
+									break;
+								case SwipeDirection.Down:
+									_contentView.Frame = new CGRect(_originalBounds.X, _originalBounds.Y + swipeThreshold, _originalBounds.Width, _originalBounds.Height);
+									break;
+							}
 						}
 					},
 				   () =>
@@ -811,32 +813,35 @@ namespace Xamarin.Forms.Platform.iOS
 				Animate(SwipeAnimationDuration, 0.0, UIViewAnimationOptions.CurveEaseIn,
 					() =>
 					{
-						double swipeThreshold = GetSwipeThreshold();
-						var actionBounds = _actionView.Bounds;
-						double actionSize;
-
-						switch (_swipeDirection)
+						if (_contentView != null)
 						{
-							case SwipeDirection.Left:
-								_contentView.Frame = new CGRect(_originalBounds.X - swipeThreshold, _originalBounds.Y, _originalBounds.Width, _originalBounds.Height);
-								actionSize = Element.RightItems.Count * SwipeItemWidth;
-								_actionView.Frame = new CGRect(actionSize - swipeThreshold, actionBounds.Y, actionBounds.Width, actionBounds.Height);
-								break;
-							case SwipeDirection.Right:
-								_contentView.Frame = new CGRect(_originalBounds.X + swipeThreshold, _originalBounds.Y, _originalBounds.Width, _originalBounds.Height);
-								actionSize = Element.LeftItems.Count * SwipeItemWidth;
-								_actionView.Frame = new CGRect(-actionSize + swipeThreshold, actionBounds.Y, actionBounds.Width, actionBounds.Height);
-								break;
-							case SwipeDirection.Up:
-								_contentView.Frame = new CGRect(_originalBounds.X, _originalBounds.Y - swipeThreshold, _originalBounds.Width, _originalBounds.Height);
-								actionSize = _contentView.Frame.Height;
-								_actionView.Frame = new CGRect(actionBounds.X, actionSize - Math.Abs(swipeThreshold), actionBounds.Width, actionBounds.Height);
-								break;
-							case SwipeDirection.Down:
-								_contentView.Frame = new CGRect(_originalBounds.X, _originalBounds.Y + swipeThreshold, _originalBounds.Width, _originalBounds.Height);
-								actionSize = _contentView.Frame.Height;
-								_actionView.Frame = new CGRect(actionBounds.X, -actionSize + Math.Abs(swipeThreshold), actionBounds.Width, actionBounds.Height);
-								break;
+							double swipeThreshold = GetSwipeThreshold();
+							var actionBounds = _actionView.Bounds;
+							double actionSize;
+
+							switch (_swipeDirection)
+							{
+								case SwipeDirection.Left:
+									_contentView.Frame = new CGRect(_originalBounds.X - swipeThreshold, _originalBounds.Y, _originalBounds.Width, _originalBounds.Height);
+									actionSize = Element.RightItems.Count * SwipeItemWidth;
+									_actionView.Frame = new CGRect(actionSize - swipeThreshold, actionBounds.Y, actionBounds.Width, actionBounds.Height);
+									break;
+								case SwipeDirection.Right:
+									_contentView.Frame = new CGRect(_originalBounds.X + swipeThreshold, _originalBounds.Y, _originalBounds.Width, _originalBounds.Height);
+									actionSize = Element.LeftItems.Count * SwipeItemWidth;
+									_actionView.Frame = new CGRect(-actionSize + swipeThreshold, actionBounds.Y, actionBounds.Width, actionBounds.Height);
+									break;
+								case SwipeDirection.Up:
+									_contentView.Frame = new CGRect(_originalBounds.X, _originalBounds.Y - swipeThreshold, _originalBounds.Width, _originalBounds.Height);
+									actionSize = _contentView.Frame.Height;
+									_actionView.Frame = new CGRect(actionBounds.X, actionSize - Math.Abs(swipeThreshold), actionBounds.Width, actionBounds.Height);
+									break;
+								case SwipeDirection.Down:
+									_contentView.Frame = new CGRect(_originalBounds.X, _originalBounds.Y + swipeThreshold, _originalBounds.Width, _originalBounds.Height);
+									actionSize = _contentView.Frame.Height;
+									_actionView.Frame = new CGRect(actionBounds.X, -actionSize + Math.Abs(swipeThreshold), actionBounds.Width, actionBounds.Height);
+									break;
+							}
 						}
 					},
 				   () =>
@@ -909,44 +914,48 @@ namespace Xamarin.Forms.Platform.iOS
 
 		double ValidateSwipeThreshold(double swipeThreshold)
 		{
+			var swipeFrame = _contentView != null ? _contentView.Frame : Frame;
+
 			if (IsHorizontalSwipe())
 			{
-				if (swipeThreshold > _contentView.Frame.Width)
-					swipeThreshold = _contentView.Frame.Width;
+				if (swipeThreshold > swipeFrame.Width)
+					swipeThreshold = swipeFrame.Width;
 
-				return swipeThreshold - SwipeThresholdMargin;
+				return swipeThreshold;
 			}
 
-			if (swipeThreshold > _contentView.Frame.Height)
-				swipeThreshold = _contentView.Frame.Height;
+			if (swipeThreshold > swipeFrame.Height)
+				swipeThreshold = swipeFrame.Height;
 
-			return swipeThreshold - SwipeThresholdMargin / 2;
+			return swipeThreshold;
 		}
 
 		Size GetSwipeItemSize(ISwipeItem swipeItem)
 		{
 			var items = GetSwipeItemsByDirection();
 
+			var swipeFrame = _contentView != null ? _contentView.Frame : Frame;
+
 			if (IsHorizontalSwipe())
 			{
 				if (swipeItem is SwipeItem)
-					return new Size(items.Mode == SwipeMode.Execute ? _contentView.Frame.Width / items.Count : SwipeItemWidth, _contentView.Frame.Height);
+					return new Size(items.Mode == SwipeMode.Execute ? swipeFrame.Width / items.Count : SwipeItemWidth, swipeFrame.Height);
 
 				if (swipeItem is SwipeItemView horizontalSwipeItemView)
 				{
 					var swipeItemViewSizeRequest = horizontalSwipeItemView.Measure(double.PositiveInfinity, double.PositiveInfinity, MeasureFlags.IncludeMargins);
-					return new Size(swipeItemViewSizeRequest.Request.Width > 0 ? (float)swipeItemViewSizeRequest.Request.Width : SwipeItemWidth, _contentView.Frame.Height);
+					return new Size(swipeItemViewSizeRequest.Request.Width > 0 ? (float)swipeItemViewSizeRequest.Request.Width : SwipeItemWidth, swipeFrame.Height);
 				}
 			}
 			else
 			{
 				if (swipeItem is SwipeItem)
-					return new Size(_contentView.Frame.Width / items.Count, GetSwipeItemHeight()); 
+					return new Size(swipeFrame.Width / items.Count, GetSwipeItemHeight()); 
 
 				if (swipeItem is SwipeItemView horizontalSwipeItemView)
 				{
 					var swipeItemViewSizeRequest = horizontalSwipeItemView.Measure(double.PositiveInfinity, double.PositiveInfinity, MeasureFlags.IncludeMargins);
-					return new Size(_contentView.Frame.Width / items.Count, swipeItemViewSizeRequest.Request.Height > 0 ? (float)swipeItemViewSizeRequest.Request.Height : _contentView.Frame.Height);
+					return new Size(swipeFrame.Width / items.Count, swipeItemViewSizeRequest.Request.Height > 0 ? (float)swipeItemViewSizeRequest.Request.Height : swipeFrame.Height);
 				}
 			}
 
