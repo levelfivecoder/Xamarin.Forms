@@ -231,6 +231,27 @@ namespace Xamarin.Forms.Platform.Android
 			base.Dispose(disposing);
 		}
 
+		public override bool DispatchTouchEvent(MotionEvent e)
+		{
+			if (e.Action == MotionEventActions.Up)
+				PropagateParentTouch();
+
+			return base.DispatchTouchEvent(e);
+		}
+
+		void PropagateParentTouch()
+		{
+			var itemContentView = _contentView.Parent.GetParentOfType<ItemContentView>();
+
+			// If the SwipeView container is ItemContentView we are using SwipeView with a CollectionView or CarouselView.
+			// When doing touch up, if the SwipeView is closed, we propagate the Touch to the parent. In this way, the parent
+			// element will manage the touch (SelectionChanged, etc.).
+			if (itemContentView != null && !Element.IsOpen)
+			{
+				itemContentView.ClickOn();
+			}
+		}
+
 		public override bool OnTouchEvent(MotionEvent e)
 		{
 			base.OnTouchEvent(e);
